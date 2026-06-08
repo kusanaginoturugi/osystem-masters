@@ -1,0 +1,19 @@
+name = "osystem-masters"
+main = "src/worker.js"
+compatibility_date = "2026-04-27"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "osystem-masters"
+database_id = "2a5b1ce7-e309-4291-b28e-34fbada65526"
+migrations_dir = "migrations"
+
+[observability]
+enabled = false
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
