@@ -4,8 +4,8 @@ compatibility_date = "2026-04-27"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-# AUTHENTIK_ISSUER = "https://auth.showway.biz/application/o/osystem-masters/"
-# AUTHENTIK_CLIENT_ID = ""
+AUTHENTIK_ISSUER = "https://auth.showway.biz/application/o/osystem-masters/"
+AUTHENTIK_CLIENT_ID = "CiZKGX5rsmNBIBFH77xWHOjyxwYxnJU9p4nzeUS9"
 
 [[d1_databases]]
 binding = "DB"
