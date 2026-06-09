@@ -1,0 +1,6 @@
+# osystem-masters ローカル開発用の環境変数とシークレット
+# 本番の非秘匿値は wrangler.toml [vars]、秘匿値は wrangler secret put で設定する。
+AUTHENTIK_ISSUER=
+AUTHENTIK_CLIENT_ID=
+AUTHENTIK_CLIENT_SECRET=
+SESSION_SECRET=

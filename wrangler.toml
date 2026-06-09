@@ -3,6 +3,10 @@ main = "src/worker.js"
 compatibility_date = "2026-04-27"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+# AUTHENTIK_ISSUER = "https://auth.showway.biz/application/o/osystem-masters/"
+# AUTHENTIK_CLIENT_ID = ""
+
 [[d1_databases]]
 binding = "DB"
 database_name = "osystem-masters"
