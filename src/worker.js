@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import authRoutes from "./routes/auth.js";
 import apiRoutes from "./routes/api.js";
+import adminRoutes from "./routes/admin.jsx";
 import { isOidcConfigured, readSessionUser } from "./lib/auth.js";
 import { requireAdmin } from "./middleware/auth.js";
 
@@ -18,10 +19,8 @@ app.get("/api/me", async (c) => {
 });
 
 app.use("/admin/*", requireAdmin());
-app.get("/admin", (c) => {
-  const user = c.get("user");
-  return c.json({ ok: true, user });
-});
+app.use("/admin", requireAdmin());
+app.route("/admin", adminRoutes);
 
 app.get("/", (c) => c.text("osystem-masters"));
 
