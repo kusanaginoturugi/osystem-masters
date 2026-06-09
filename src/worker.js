@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import authRoutes from "./routes/auth.js";
+import apiRoutes from "./routes/api.js";
 import { isOidcConfigured, readSessionUser } from "./lib/auth.js";
 import { requireAdmin } from "./middleware/auth.js";
 
 const app = new Hono();
 
 app.route("/auth", authRoutes);
-
-app.get("/api/health", (c) => c.json({ ok: true }));
+app.route("/api", apiRoutes);
 
 app.get("/api/me", async (c) => {
   if (!isOidcConfigured(c.env)) {
