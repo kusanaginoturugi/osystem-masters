@@ -19,7 +19,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 app.get("/fellowships", async (c) => {
   const sql = applyActiveFilter(
     c,
-    "SELECT id, code, old_code, name, short_name, active, sort_order, updated_at FROM fellowships",
+    "SELECT id, code, old_code, name, short_name, color_code, active, sort_order, updated_at FROM fellowships",
   );
   const { results } = await c.env.DB.prepare(`${sql} ORDER BY sort_order ASC, id ASC`).all();
   return c.json({ data: results, updated_at: await readMeta(c.env.DB, "fellowships") });

@@ -25,6 +25,7 @@ const STYLE = `
   .col-code { width: 7rem; }
   .col-name { width: 18rem; }
   .col-short { width: 8rem; }
+  .col-color { width: 7rem; }
   .col-num { width: 5rem; }
   .col-unit { width: 5rem; }
   .col-cat { width: 7rem; }
@@ -123,7 +124,7 @@ app.get("/", async (c) => {
 app.get("/fellowships", async (c) => {
   const user = c.get("user");
   const { results } = await c.env.DB.prepare(
-    `SELECT id, code, old_code, name, short_name, active, sort_order, updated_at
+    `SELECT id, code, old_code, name, short_name, color_code, active, sort_order, updated_at
      FROM fellowships ORDER BY sort_order ASC, id ASC`,
   ).all();
   const formId = (id) => `edit-fellowship-${id}`;
@@ -139,6 +140,7 @@ app.get("/fellowships", async (c) => {
           <col class="col-code" />
           <col class="col-name" />
           <col class="col-short" />
+          <col class="col-color" />
           <col class="col-sort" />
           <col class="col-active" />
           <col class="col-save" />
@@ -151,6 +153,7 @@ app.get("/fellowships", async (c) => {
             <th>old_code</th>
             <th>名称</th>
             <th>短縮名</th>
+            <th>color</th>
             <th>sort</th>
             <th>active</th>
             <th></th>
@@ -165,6 +168,7 @@ app.get("/fellowships", async (c) => {
               <td><input form={formId(row.id)} type="text" name="old_code" value={row.old_code || ""} /></td>
               <td><input form={formId(row.id)} type="text" name="name" value={row.name} required /></td>
               <td><input form={formId(row.id)} type="text" name="short_name" value={row.short_name} required /></td>
+              <td><input form={formId(row.id)} type="text" name="color_code" value={row.color_code || ""} pattern="^#[0-9A-Fa-f]{6}$" placeholder="#xxxxxx" /></td>
               <td><input form={formId(row.id)} type="number" name="sort_order" value={row.sort_order} /></td>
               <td class="center">
                 <input form={formId(row.id)} type="hidden" name="active" value="0" />
@@ -195,6 +199,7 @@ app.get("/fellowships", async (c) => {
             <col class="col-code" />
             <col class="col-name" />
             <col class="col-short" />
+            <col class="col-color" />
             <col class="col-sort" />
             <col class="col-save" />
           </colgroup>
@@ -204,6 +209,7 @@ app.get("/fellowships", async (c) => {
               <th>old_code</th>
               <th>名称</th>
               <th>短縮名</th>
+              <th>color</th>
               <th>sort</th>
               <th></th>
             </tr>
@@ -214,6 +220,7 @@ app.get("/fellowships", async (c) => {
               <td><input type="text" name="old_code" /></td>
               <td><input type="text" name="name" required /></td>
               <td><input type="text" name="short_name" required /></td>
+              <td><input type="text" name="color_code" pattern="^#[0-9A-Fa-f]{6}$" placeholder="#xxxxxx" /></td>
               <td><input type="number" name="sort_order" value="0" /></td>
               <td><button type="submit">追加</button></td>
             </tr>
@@ -227,14 +234,15 @@ app.get("/fellowships", async (c) => {
 app.post("/fellowships", async (c) => {
   const form = await c.req.formData();
   await c.env.DB.prepare(
-    `INSERT INTO fellowships (code, old_code, name, short_name, sort_order)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO fellowships (code, old_code, name, short_name, color_code, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       String(form.get("code") || "").trim(),
       (form.get("old_code") || "").toString().trim() || null,
       String(form.get("name") || "").trim(),
       String(form.get("short_name") || "").trim(),
+      (form.get("color_code") || "").toString().trim() || null,
       Number(form.get("sort_order") || 0),
     )
     .run();
@@ -246,7 +254,7 @@ app.post("/fellowships/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const form = await c.req.formData();
   await c.env.DB.prepare(
-    `UPDATE fellowships SET code = ?, old_code = ?, name = ?, short_name = ?, sort_order = ?, active = ?, updated_at = CURRENT_TIMESTAMP
+    `UPDATE fellowships SET code = ?, old_code = ?, name = ?, short_name = ?, color_code = ?, sort_order = ?, active = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
   )
     .bind(
@@ -254,6 +262,7 @@ app.post("/fellowships/:id", async (c) => {
       (form.get("old_code") || "").toString().trim() || null,
       String(form.get("name") || "").trim(),
       String(form.get("short_name") || "").trim(),
+      (form.get("color_code") || "").toString().trim() || null,
       Number(form.get("sort_order") || 0),
       form.getAll("active").includes("1") ? 1 : 0,
       id,
