@@ -4,18 +4,19 @@ import { Hono } from "hono";
 
 const app = new Hono();
 
+// 色は osystem/design/base.css の紫アクセント + 青みグレーに寄せる。
 const STYLE = `
-  body { font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; margin: 1.5rem; color: #222; }
-  nav { padding-bottom: 0.6rem; border-bottom: 1px solid #ddd; margin-bottom: 1rem; }
-  nav a { margin-right: 1rem; text-decoration: none; color: #06c; }
-  nav .user { float: right; color: #666; font-size: 0.9rem; }
+  body { font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; margin: 1.5rem; color: #495567; }
+  nav { padding-bottom: 0.6rem; border-bottom: 1px solid #d7dfef; margin-bottom: 1rem; }
+  nav a { margin-right: 1rem; text-decoration: none; color: #907fc0; }
+  nav .user { float: right; color: #7d88a0; font-size: 0.9rem; }
   h1 { font-size: 1.3rem; margin: 0 0 1rem; }
   h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; }
 
   table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-  th, td { border: 1px solid #ddd; padding: 0.3rem 0.5rem; text-align: left; font-size: 0.9rem; vertical-align: middle; }
-  th { background: #f4f4f4; font-weight: normal; }
-  tr.inactive td { color: #aaa; }
+  th, td { border: 1px solid #d7dfef; padding: 0.3rem 0.5rem; text-align: left; font-size: 0.9rem; vertical-align: middle; }
+  th { background: #edf2fb; font-weight: normal; }
+  tr.inactive td { color: #9aa4bc; }
 
   input { padding: 0.25rem 0.4rem; font: inherit; box-sizing: border-box; width: 100%; }
   input[type=checkbox] { width: auto; margin: 0; }
@@ -38,7 +39,7 @@ const STYLE = `
   td.actions { white-space: nowrap; }
   td.actions form { display: inline; margin: 0; }
 
-  .flash { padding: 0.5rem 0.8rem; background: #e8f4ff; border: 1px solid #b8d8f4; margin-bottom: 0.8rem; border-radius: 3px; }
+  .flash { padding: 0.5rem 0.8rem; background: #eef2f8; border: 1px solid #c5d2e1; margin-bottom: 0.8rem; border-radius: 3px; }
 `;
 
 const Layout = (props) => (
