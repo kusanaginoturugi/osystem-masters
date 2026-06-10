@@ -1,6 +1,8 @@
 /** @jsxRuntime automatic */
 /** @jsxImportSource hono/jsx */
 import { Hono } from "hono";
+import { getTable } from "../lib/master-tables.js";
+import { parseCSV, toCSV } from "../lib/csv.js";
 
 const app = new Hono();
 
@@ -40,6 +42,11 @@ const STYLE = `
   td.actions form { display: inline; margin: 0; }
 
   .flash { padding: 0.5rem 0.8rem; background: #eef2f8; border: 1px solid #c5d2e1; margin-bottom: 0.8rem; border-radius: 3px; }
+
+  .csv-section { margin-top: 2rem; padding: 0.8rem 1rem; border: 1px solid #d7dfef; border-radius: 6px; background: #f7f9fd; }
+  .csv-section h2 { margin: 0 0 0.5rem; }
+  .csv-section form { display: inline; margin-left: 1rem; }
+  .csv-section .note { display: block; margin-top: 0.4rem; color: #7d88a0; font-size: 0.85rem; }
 `;
 
 const Layout = (props) => (
@@ -85,6 +92,187 @@ async function touchMeta(db, tableName) {
 const EditForm = (props) => (
   <form id={props.id} method="post" action={props.action} hidden></form>
 );
+
+// 各テーブル管理画面の末尾に置く CSV ダウンロード / インポートセクション。
+const CsvSection = ({ tableName }) => (
+  <div class="csv-section">
+    <h2>CSV</h2>
+    <a href={`/admin/_export/${tableName}.csv`}>⬇ ダウンロード</a>
+    <form method="post" action={`/admin/_import/${tableName}`} enctype="multipart/form-data">
+      <input type="file" name="csv" accept=".csv,text/csv" required />
+      <button type="submit">インポート</button>
+    </form>
+    <small class="note">
+      UTF-8 (BOM 可)、ヘッダ行あり。id がある行は UPDATE、空の行は uniqueKey (code) で突合し既存なら UPDATE、無ければ INSERT。CSV に無いレコードは触らない (削除したい場合は active=0 を送る)。
+    </small>
+  </div>
+);
+
+// ---------- Generic CSV export / import (メタ定義駆動) ----------
+
+// CSV から得た値を SQL バインド用に正規化する。
+function normalizeCell(col, rawValue) {
+  const v = rawValue === undefined ? "" : String(rawValue);
+  if (col.type === "int") {
+    if (v.trim() === "") return col.default ?? null;
+    const n = Number(v);
+    if (Number.isNaN(n)) throw new Error(`列 ${col.name} に整数でない値: ${v}`);
+    return n;
+  }
+  // text
+  const s = v.trim();
+  if (s === "") return col.nullable ? null : "";
+  return s;
+}
+
+app.get("/_export/:table{.+\\.csv}", async (c) => {
+  const param = c.req.param("table");
+  const tableName = param.replace(/\.csv$/i, "");
+  const def = getTable(tableName);
+  if (!def) return c.text(`unknown table: ${tableName}`, 404);
+
+  const cols = def.columns.map((col) => col.name);
+  const sql = `SELECT ${cols.join(", ")}, updated_at FROM ${tableName} ORDER BY sort_order ASC, id ASC`;
+  const { results } = await c.env.DB.prepare(sql).all();
+
+  const header = [...cols, "updated_at"];
+  const rows = [header, ...results.map((row) => header.map((k) => row[k] ?? ""))];
+
+  return new Response(toCSV(rows), {
+    headers: {
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="${tableName}.csv"`,
+    },
+  });
+});
+
+app.post("/_import/:table", async (c) => {
+  const tableName = c.req.param("table");
+  const def = getTable(tableName);
+  if (!def) return c.text(`unknown table: ${tableName}`, 404);
+
+  const form = await c.req.formData();
+  const file = form.get("csv");
+  if (!file || typeof file === "string") {
+    return redirectWithFlash(c, `/admin/${tableName}`, "CSV ファイルが指定されていません");
+  }
+
+  const text = await file.text();
+  const rows = parseCSV(text);
+  if (rows.length < 2) {
+    return redirectWithFlash(c, `/admin/${tableName}`, "ヘッダ行を含めて 2 行以上の CSV を渡してください");
+  }
+
+  const header = rows[0].map((h) => h.trim());
+  const dataRows = rows.slice(1);
+
+  // ヘッダにある列でメタ定義に存在するものだけ採用する。updated_at は CSV から取り込まない。
+  const cols = def.columns.filter((col) => header.includes(col.name));
+  const colNames = cols.map((c) => c.name);
+  const headerIndex = Object.fromEntries(header.map((h, i) => [h, i]));
+
+  if (!colNames.includes(def.uniqueKey) && !colNames.includes("id")) {
+    return redirectWithFlash(
+      c,
+      `/admin/${tableName}`,
+      `id または ${def.uniqueKey} のどちらかは CSV に含めてください`,
+    );
+  }
+
+  const stmts = [];
+  let inserts = 0;
+  let updates = 0;
+
+  for (const [rowIdx, raw] of dataRows.entries()) {
+    if (raw.every((v) => String(v).trim() === "")) continue; // 空行はスキップ
+
+    let parsedId = null;
+    if (header.includes("id")) {
+      const v = String(raw[headerIndex.id] ?? "").trim();
+      if (v !== "") {
+        const n = Number(v);
+        if (Number.isNaN(n)) {
+          return redirectWithFlash(
+            c,
+            `/admin/${tableName}`,
+            `${rowIdx + 2} 行目: id が整数ではありません (${v})`,
+          );
+        }
+        parsedId = n;
+      }
+    }
+
+    // id が無い行は uniqueKey で既存検索
+    let targetId = parsedId;
+    if (targetId === null) {
+      const keyValue = String(raw[headerIndex[def.uniqueKey]] ?? "").trim();
+      if (keyValue === "") {
+        return redirectWithFlash(
+          c,
+          `/admin/${tableName}`,
+          `${rowIdx + 2} 行目: id も ${def.uniqueKey} も空です`,
+        );
+      }
+      const existing = await c.env.DB.prepare(
+        `SELECT id FROM ${tableName} WHERE ${def.uniqueKey} = ?`,
+      )
+        .bind(keyValue)
+        .first();
+      if (existing) targetId = existing.id;
+    }
+
+    let values;
+    try {
+      values = cols.map((col) => normalizeCell(col, raw[headerIndex[col.name]]));
+    } catch (err) {
+      return redirectWithFlash(c, `/admin/${tableName}`, `${rowIdx + 2} 行目: ${err.message}`);
+    }
+
+    if (targetId === null) {
+      // 新規 INSERT (id は AUTOINCREMENT に任せる、CSV の id 列があっても無視)
+      const insertCols = cols.filter((c) => c.name !== "id");
+      const insertValues = insertCols.map((c) => values[colNames.indexOf(c.name)]);
+      const placeholders = insertCols.map(() => "?").join(", ");
+      stmts.push(
+        c.env.DB.prepare(
+          `INSERT INTO ${tableName} (${insertCols.map((c) => c.name).join(", ")}, updated_at)
+           VALUES (${placeholders}, CURRENT_TIMESTAMP)`,
+        ).bind(...insertValues),
+      );
+      inserts += 1;
+    } else {
+      // UPDATE (id 列は SET 対象から外す)
+      const setCols = cols.filter((c) => c.name !== "id");
+      const setValues = setCols.map((c) => values[colNames.indexOf(c.name)]);
+      stmts.push(
+        c.env.DB.prepare(
+          `UPDATE ${tableName} SET ${setCols.map((c) => `${c.name} = ?`).join(", ")},
+             updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+        ).bind(...setValues, targetId),
+      );
+      updates += 1;
+    }
+  }
+
+  if (stmts.length === 0) {
+    return redirectWithFlash(c, `/admin/${tableName}`, "取り込み対象の行がありませんでした");
+  }
+
+  // master_meta の更新もまとめて
+  stmts.push(
+    c.env.DB.prepare(
+      `UPDATE master_meta SET updated_at = CURRENT_TIMESTAMP WHERE table_name = ?`,
+    ).bind(tableName),
+  );
+
+  await c.env.DB.batch(stmts);
+  return redirectWithFlash(
+    c,
+    `/admin/${tableName}`,
+    `CSV インポート完了: 追加 ${inserts} 件 / 更新 ${updates} 件`,
+  );
+});
 
 // ---------- Dashboard ----------
 
@@ -228,6 +416,8 @@ app.get("/fellowships", async (c) => {
           </tbody>
         </table>
       </form>
+
+      <CsvSection tableName="fellowships" />
     </Layout>,
   );
 });
@@ -377,6 +567,8 @@ app.get("/ceremonies", async (c) => {
           </tbody>
         </table>
       </form>
+
+      <CsvSection tableName="ceremonies" />
     </Layout>,
   );
 });
@@ -549,6 +741,8 @@ app.get("/items", async (c) => {
           </tbody>
         </table>
       </form>
+
+      <CsvSection tableName="items" />
     </Layout>,
   );
 });
