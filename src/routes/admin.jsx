@@ -279,7 +279,13 @@ app.post("/_import/:table", async (c) => {
 app.get("/", async (c) => {
   const user = c.get("user");
   const { results } = await c.env.DB.prepare(
-    `SELECT table_name, updated_at FROM master_meta ORDER BY table_name`,
+    `SELECT table_name, updated_at FROM master_meta
+     ORDER BY CASE table_name
+       WHEN 'fellowships' THEN 1
+       WHEN 'ceremonies' THEN 2
+       WHEN 'items' THEN 3
+       ELSE 99
+     END, table_name`,
   ).all();
   return c.html(
     <Layout title="Dashboard" user={user} flash={flashFromQuery(c)}>
