@@ -298,7 +298,7 @@ app.get("/", async (c) => {
         <tbody>
           {results.map((row) => (
             <tr>
-              <td>{row.table_name}</td>
+              <td>{getTable(row.table_name)?.label || row.table_name} ({row.table_name})</td>
               <td>{row.updated_at}</td>
             </tr>
           ))}
