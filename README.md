@@ -39,3 +39,4 @@ npm run db:migrate:remote
 ## 関連ドキュメント
 
 - マスタ全体の所在と源流: [`osystem/DATA.md`](https://github.com/kusanaginoturugi/osystem/blob/main/DATA.md)
+- 依存更新と CI の運用: [`docs/dependency-updates.md`](./docs/dependency-updates.md)
