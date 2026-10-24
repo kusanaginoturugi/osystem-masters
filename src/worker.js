@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { html } from "hono/html";
+import { secureHeaders } from "hono/secure-headers";
 import authRoutes from "./routes/auth.js";
 import apiRoutes from "./routes/api.js";
 import adminRoutes from "./routes/admin.jsx";
@@ -7,6 +8,36 @@ import { isOidcConfigured, readSessionUser } from "./lib/auth.js";
 import { requireAdmin } from "./middleware/auth.js";
 
 const app = new Hono();
+
+// 画面は inline <style> を使うので style-src だけ 'unsafe-inline' を許可する
+app.use(
+  "*",
+  secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+    xFrameOptions: "DENY",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    strictTransportSecurity: "max-age=31536000",
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: [],
+      payment: [],
+      usb: [],
+    },
+  }),
+);
 
 app.route("/auth", authRoutes);
 app.route("/api", apiRoutes);
