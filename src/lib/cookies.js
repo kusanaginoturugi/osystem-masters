@@ -50,6 +50,17 @@ async function hmacSignature(secret, payload) {
   return base64UrlEncode(new Uint8Array(signature));
 }
 
+function timingSafeEqualString(a, b) {
+  if (a.length !== b.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 export async function createSignedCookieValue(secret, data) {
   const payload = base64UrlEncode(JSON.stringify(data));
   const signature = await hmacSignature(secret, payload);
@@ -65,7 +76,7 @@ export async function readSignedCookieValue(secret, value) {
     return null;
   }
   const expected = await hmacSignature(secret, payload);
-  if (signature !== expected) {
+  if (!timingSafeEqualString(signature, expected)) {
     return null;
   }
   try {

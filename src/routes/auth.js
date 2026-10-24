@@ -24,6 +24,20 @@ async function sha256Base64Url(value) {
   return base64UrlEncode(new Uint8Array(digest));
 }
 
+// ログイン後の遷移先は同一オリジンのパスだけ許可する (//evil や /\evil、制御文字入りは外部扱い)
+function safeRedirectPath(value) {
+  const path = String(value || "");
+  if (!path.startsWith("/") || /[\u0000-\u001f\\]/.test(path)) {
+    return "/";
+  }
+  const base = "https://osystem-masters.invalid";
+  const resolved = new URL(path, base);
+  if (resolved.origin !== base) {
+    return "/";
+  }
+  return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+}
+
 function getRedirectUri(c) {
   return `${new URL(c.req.url).origin}/auth/callback`;
 }
@@ -35,7 +49,7 @@ app.get("/login", async (c) => {
   const state = randomToken();
   const verifier = randomToken();
   const challenge = await sha256Base64Url(verifier);
-  const rd = url.searchParams.get("rd") || "/";
+  const rd = safeRedirectPath(url.searchParams.get("rd"));
   const oidcCookie = await createSignedCookieValue(env.SESSION_SECRET, {
     state,
     verifier,
@@ -109,7 +123,7 @@ app.get("/callback", async (c) => {
 
   c.header("Set-Cookie", buildCookie(SESSION_COOKIE_NAME, session, { maxAge: SESSION_TTL_SECONDS }), { append: true });
   c.header("Set-Cookie", buildCookie(OIDC_COOKIE_NAME, "", { maxAge: 0 }), { append: true });
-  return c.redirect(oidcState.rd || "/");
+  return c.redirect(safeRedirectPath(oidcState.rd));
 });
 
 app.get("/logout", (c) => {
