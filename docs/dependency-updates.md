@@ -54,3 +54,9 @@
 - `ci.yml`: `permissions: contents: read`、週次実行、Actions を commit SHA で固定、`persist-credentials: false`、`npm audit --omit=dev --audit-level=high` を追加。
 - `codeql.yml` (actions / javascript-typescript、security-extended) と `dependency-review.yml` (high 以上で失敗) を追加。
 - Dependabot の設定は既存のまま。Dependabot alerts (vulnerability-alerts) を有効化。security updates (自動修正 PR) と main の保護設定は変更していない。
+
+### 検証
+
+- ローカル: `npm audit` 0 件、`wrangler deploy --dry-run` 成功、`wrangler dev` でヘッダーを確認。
+- push 後: CI・CodeQL ともに success。code scanning と Dependabot alerts の未解決は 0 件。
+- 本番 (`npm run deploy`、Version ID 831306cc): `/` のヘッダーを確認、`/api/health` と `/api/items` が応答、`/admin` は未ログインで `/auth/login` へ、`/auth/login?rd=https://evil.example` は authentik へ 302。headless Chromium で `/` を開いて CSP 違反は 0 件。ログイン後の管理画面は目視で確認する。
